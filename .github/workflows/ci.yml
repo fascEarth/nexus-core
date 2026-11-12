@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w libs/shared-types
+      - name: API typecheck
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+      - name: API tests
+        run: npm test
+      - name: Web build
+        run: npx ng build
+        working-directory: apps/web
+      - name: Prisma schema valid
+        run: npx prisma validate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://x:x@localhost:5432/x
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical

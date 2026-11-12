@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)", "Bash(npm test*)", "Bash(npx tsc*)", "Bash(npx jest*)", "Bash(npx ng build*)",
+      "Bash(npx prisma format*)", "Bash(npx prisma validate*)", "Bash(npx prisma generate*)",
+      "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)"
+    ],
+    "deny": ["Read(./.env)", "Read(./apps/*/.env)", "Bash(npx prisma migrate reset*)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/after-edit.mjs" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/block-secrets.mjs" }
+        ]
+      }
+    ]
+  }
+}

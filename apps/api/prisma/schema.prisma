@@ -1,0 +1,452 @@
+// Nexus Core — core platform schema.
+// Rule: every tenant-owned table has `tenantId` and an RLS policy (see rls.sql).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Tenancy ─────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  plan      String   @default("free")
+  settings  Json     @default("{}")
+  modules   String[] @default([])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant")
+}
+
+// ───────────── Identity ─────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  name         String
+  mfaSecret    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships TenantUser[]
+  sessions    Session[]
+
+  @@map("user")
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  status    String   @default("active") // active | invited | suspended
+  managerId String?
+  createdAt DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roles    UserRole[]
+  orgUnits UserOrgUnit[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@map("tenant_user")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  tenantId         String
+  refreshTokenHash String
+  userAgent        String?
+  ip               String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+// ───────────── Org ─────────────
+
+model OrgUnit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  parentId  String?
+  kind      String // company | branch | department | team
+  name      String
+  createdAt DateTime @default(now())
+
+  parent   OrgUnit?      @relation("OrgTree", fields: [parentId], references: [id])
+  children OrgUnit[]     @relation("OrgTree")
+  members  UserOrgUnit[]
+
+  @@index([tenantId, parentId])
+  @@map("org_unit")
+}
+
+model UserOrgUnit {
+  tenantUserId String
+  orgUnitId    String
+  tenantId     String
+
+  tenantUser TenantUser @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  orgUnit    OrgUnit    @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+
+  @@id([tenantUserId, orgUnitId])
+  @@index([tenantId])
+  @@map("user_org_unit")
+}
+
+// ───────────── Access (RBAC + ABAC) ─────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  description String?
+  system      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions     RolePermission[]
+  users           UserRole[]
+  fieldPermission FieldPermission[]
+
+  @@unique([tenantId, key])
+  @@map("role")
+}
+
+model RolePermission {
+  id         String @id @default(cuid())
+  tenantId   String
+  roleId     String
+  /// `<resource>:<action>`, `*` allowed as wildcard
+  permission String
+  /// own | team | org_unit | all
+  scope      String @default("all")
+  /// ABAC condition (json-rules-engine format) evaluated on the record
+  condition  Json?
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, roleId])
+  @@map("role_permission")
+}
+
+model UserRole {
+  tenantUserId String
+  roleId       String
+  tenantId     String
+
+  tenantUser TenantUser @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([tenantUserId, roleId])
+  @@index([tenantId])
+  @@map("user_role")
+}
+
+model FieldPermission {
+  id       String @id @default(cuid())
+  tenantId String
+  roleId   String
+  entity   String
+  field    String
+  mode     String // hidden | read | write
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, entity, field])
+  @@map("field_permission")
+}
+
+model Delegation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  fromUserId String
+  toUserId   String
+  startsAt   DateTime
+  endsAt     DateTime
+  scope      String   @default("approvals")
+
+  @@index([tenantId, fromUserId])
+  @@map("delegation")
+}
+
+// ───────────── Metadata engine ─────────────
+
+model EntityDef {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  label       String
+  pluralLabel String
+  icon        String?
+  numbering   String?
+  workflowKey String?
+  version     Int      @default(1)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields FieldDef[]
+
+  @@unique([tenantId, name])
+  @@map("entity_def")
+}
+
+model FieldDef {
+  id           String  @id @default(cuid())
+  tenantId     String
+  entityId     String
+  name         String
+  label        String
+  type         String
+  required     Boolean @default(false)
+  options      Json?
+  lookupEntity String?
+  defaultValue Json?
+  pii          Boolean @default(false)
+  order        Int     @default(0)
+
+  entity EntityDef @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, name])
+  @@map("field_def")
+}
+
+/// Generic storage for metadata-defined entities. Promote hot entities to real tables later.
+model Record {
+  id        String    @id @default(cuid())
+  tenantId  String
+  entity    String
+  number    String?
+  data      Json
+  status    String?
+  ownerId   String
+  orgUnitId String?
+  version   Int       @default(1)
+  createdAt DateTime  @default(now())
+  createdBy String
+  updatedAt DateTime  @updatedAt
+  updatedBy String
+  deletedAt DateTime?
+
+  @@index([tenantId, entity, createdAt])
+  @@index([tenantId, ownerId])
+  @@map("record")
+}
+
+model Sequence {
+  tenantId String
+  key      String
+  value    Int    @default(0)
+
+  @@id([tenantId, key])
+  @@map("sequence")
+}
+
+// ───────────── Events (transactional outbox) ─────────────
+
+model OutboxEvent {
+  id            String    @id
+  tenantId      String
+  type          String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+  attempts      Int       @default(0)
+  lastError     String?
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_event")
+}
+
+model ProcessedEvent {
+  consumer    String
+  eventId     String
+  tenantId    String
+  processedAt DateTime @default(now())
+
+  @@id([consumer, eventId])
+  @@map("processed_event")
+}
+
+model DeadLetter {
+  id        String   @id @default(cuid())
+  tenantId  String
+  consumer  String
+  eventId   String
+  payload   Json
+  error     String
+  createdAt DateTime @default(now())
+  replayed  Boolean  @default(false)
+
+  @@index([tenantId, createdAt])
+  @@map("dead_letter")
+}
+
+model EventType {
+  type        String  @id
+  module      String
+  description String?
+  schema      Json?
+
+  @@map("event_type")
+}
+
+// ───────────── Workflow & approvals ─────────────
+
+model WorkflowDef {
+  id         String   @id @default(cuid())
+  tenantId   String
+  key        String
+  entity     String
+  version    Int      @default(1)
+  /// { initial, states: { [name]: { label, final? } }, transitions: [...] }
+  definition Json
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, key, version])
+  @@map("workflow_def")
+}
+
+model WorkflowInstance {
+  id          String   @id @default(cuid())
+  tenantId    String
+  workflowKey String
+  version     Int
+  entity      String
+  recordId    String
+  state       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks   WorkflowTask[]
+  history WorkflowHistory[]
+
+  @@unique([tenantId, entity, recordId])
+  @@map("workflow_instance")
+}
+
+model WorkflowTask {
+  id          String    @id @default(cuid())
+  tenantId    String
+  instanceId  String
+  state       String
+  assigneeId  String?
+  roleKey     String?
+  status      String    @default("open") // open | done | cancelled
+  dueAt       DateTime?
+  completedAt DateTime?
+  completedBy String?
+  createdAt   DateTime  @default(now())
+
+  instance WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, assigneeId, status])
+  @@index([tenantId, roleKey, status])
+  @@map("workflow_task")
+}
+
+model WorkflowHistory {
+  id         String   @id @default(cuid())
+  tenantId   String
+  instanceId String
+  fromState  String
+  toState    String
+  transition String
+  actorId    String
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  instance WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, instanceId])
+  @@map("workflow_history")
+}
+
+// ───────────── Rules engine ─────────────
+
+model Rule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  /// event type the rule listens to, e.g. `record.leave.created`
+  eventType String
+  /// json-rules-engine conditions
+  condition Json
+  /// ordered list of actions
+  actions   Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs RuleRun[]
+
+  @@index([tenantId, eventType, active])
+  @@map("rule")
+}
+
+model RuleRun {
+  id        String   @id @default(cuid())
+  tenantId  String
+  ruleId    String
+  eventId   String
+  matched   Boolean
+  result    Json?
+  error     String?
+  createdAt DateTime @default(now())
+
+  rule Rule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, ruleId, createdAt])
+  @@map("rule_run")
+}
+
+// ───────────── Audit, activity, notifications ─────────────
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  String
+  actorType String
+  actorId   String
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, createdAt])
+  @@map("audit_log")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, userId, readAt])
+  @@map("notification")
+}

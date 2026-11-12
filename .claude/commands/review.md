@@ -1,0 +1,1 @@
+Run the `code-reviewer` agent on the current branch diff against main, then the `security-auditor` on any files touching auth, access, rules webhooks, files or AI. Summarise the findings by severity and propose fixes. Do not change code until I approve.

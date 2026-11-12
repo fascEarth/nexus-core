@@ -1,0 +1,25 @@
+{
+  "name": "nexus-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexus Core — multi-tenant, event-driven, AI-ready application platform by Fascinora",
+  "workspaces": [
+    "libs/shared-types",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
+    "dev:api": "npm run start:dev -w apps/api",
+    "dev:web": "npm run start -w apps/web",
+    "build": "npm run build -w libs/shared-types && npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm test -w apps/api",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
