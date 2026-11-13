@@ -1,0 +1,51 @@
+{
+	email {$ACME_EMAIL}
+}
+
+(security) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# Hashed assets can be cached forever; index.html never.
+	@assets path *.js *.css *.ico *.woff2
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@html path / /index.html
+	header @html Cache-Control "no-store"
+}
+
+{$NEXUS_DOMAIN} {
+	import security
+	header Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	@backend path /api/* /socket.io/* /health
+	handle @backend {
+		reverse_proxy nexus-api:3000
+	}
+	handle {
+		root * /srv/nexus
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+{$MEDI_DOMAIN} {
+	import security
+	# Video consultations embed Jitsi, which needs camera and microphone.
+	header Permissions-Policy "camera=(self \"https://meet.jit.si\"), microphone=(self \"https://meet.jit.si\"), display-capture=(self \"https://meet.jit.si\"), geolocation=()"
+	request_body /api/v1/me/records* {
+		max_size 11MB
+	}
+	@backend path /api/* /socket.io/*
+	handle @backend {
+		reverse_proxy medi-api:3100
+	}
+	handle {
+		root * /srv/medi
+		try_files {path} /index.html
+		file_server
+	}
+}

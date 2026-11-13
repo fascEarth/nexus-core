@@ -15,7 +15,14 @@
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "useUnknownInCatchVariables": false
+    "useUnknownInCatchVariables": false,
+    "types": [
+      "node",
+      "jest"
+    ]
   },
-  "include": ["src/**/*", "prisma/**/*.ts"]
+  "include": [
+    "src/**/*",
+    "prisma/**/*.ts"
+  ]
 }

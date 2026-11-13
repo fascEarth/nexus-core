@@ -1,0 +1,113 @@
+# Fascinora product server: Nexus Core + MediConsult behind Caddy (automatic HTTPS).
+# Layout on the server:
+#   /opt/fascinora/nexus-core   (this repo)
+#   /opt/fascinora/mediconsult
+# Run from /opt/fascinora/nexus-core/deploy/server:  docker compose up -d --build
+
+name: fascinora
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      NEXUS_DOMAIN: ${NEXUS_DOMAIN}
+      MEDI_DOMAIN: ${MEDI_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - nexus_site:/srv/nexus:ro
+      - medi_site:/srv/medi:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [nexus-api, medi-api]
+
+  # ───────── Nexus Core ─────────
+  nexus-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: ${NEXUS_DB_PASSWORD}
+      POSTGRES_DB: nexus
+    volumes: [nexus_pg:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U nexus"], interval: 5s, retries: 20 }
+
+  nexus-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes: [nexus_redis:/data]
+
+  nexus-web:
+    build: { context: ../.., target: web }
+    volumes: [nexus_site:/out]
+    restart: "no"
+
+  nexus-api:
+    build: { context: ../.., target: api }
+    restart: unless-stopped
+    depends_on:
+      nexus-db: { condition: service_healthy }
+      nexus-redis: { condition: service_started }
+    environment:
+      DATABASE_URL: postgresql://nexus:${NEXUS_DB_PASSWORD}@nexus-db:5432/nexus
+      APP_DATABASE_URL: postgresql://nexus_app:${NEXUS_APP_DB_PASSWORD}@nexus-db:5432/nexus
+      APP_DB_PASSWORD: ${NEXUS_APP_DB_PASSWORD}
+      REDIS_URL: redis://nexus-redis:6379
+      JWT_ACCESS_SECRET: ${NEXUS_JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${NEXUS_JWT_REFRESH_SECRET}
+      PORT: "3000"
+      CORS_ORIGINS: https://${NEXUS_DOMAIN}
+      ROOT_DOMAIN: ""
+      SEED_ON_START: "true"
+    mem_limit: 1g
+
+  # ───────── MediConsult ─────────
+  medi-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medi
+      POSTGRES_PASSWORD: ${MEDI_DB_PASSWORD}
+      POSTGRES_DB: mediconsult
+    volumes: [medi_pg:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U medi"], interval: 5s, retries: 20 }
+
+  medi-web:
+    build: { context: ../../../mediconsult, target: web }
+    volumes: [medi_site:/out]
+    restart: "no"
+
+  medi-api:
+    build: { context: ../../../mediconsult, target: api }
+    restart: unless-stopped
+    depends_on:
+      medi-db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://medi:${MEDI_DB_PASSWORD}@medi-db:5432/mediconsult
+      PORT: "3100"
+      CORS_ORIGINS: https://${MEDI_DOMAIN}
+      APP_URL: https://${MEDI_DOMAIN}
+      JWT_ACCESS_SECRET: ${MEDI_JWT_ACCESS_SECRET}
+      DATA_ENCRYPTION_KEY: ${MEDI_DATA_ENCRYPTION_KEY}
+      PAYMENT_PROVIDER: demo
+      DEMO_MODE: "true"
+      JITSI_DOMAIN: meet.jit.si
+      UPLOAD_DIR: /data/uploads
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SEED_ON_START: "true"
+    volumes: [medi_uploads:/data/uploads]
+    mem_limit: 1g
+
+volumes:
+  caddy_data:
+  caddy_config:
+  nexus_site:
+  medi_site:
+  nexus_pg:
+  nexus_redis:
+  medi_pg:
+  medi_uploads:

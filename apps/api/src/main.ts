@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -13,7 +14,8 @@ function assertEnv() {
 
 async function bootstrap() {
   assertEnv();
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
+  app.set('trust proxy', 1);
   app.use(helmet());
   app.enableCors({
     origin: (process.env.CORS_ORIGINS ?? 'http://localhost:4200').split(','),

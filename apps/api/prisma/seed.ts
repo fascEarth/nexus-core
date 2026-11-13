@@ -43,7 +43,7 @@ async function main() {
     { permission: 'leave:update', scope: 'own' },
   ]);
 
-  const org = await prisma.orgUnit.create({ data: { tenantId: t, kind: 'company', name: 'Acme Corp' } }).catch(() => null);
+  const org = (await prisma.orgUnit.findFirst({ where: { tenantId: t, kind: 'company' } })) ?? (await prisma.orgUnit.create({ data: { tenantId: t, kind: 'company', name: 'Acme Corp' } }));
 
   const member = async (email: string, name: string, password: string, roleId: string, managerId?: string) => {
     const u = await user(email, name, password);
