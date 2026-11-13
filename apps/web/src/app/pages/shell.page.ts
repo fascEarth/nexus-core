@@ -6,6 +6,7 @@ import { AuthService } from '../core/auth.service';
 import { Api } from '../core/api.service';
 import { EventHub } from '../core/event-hub.service';
 import { CanDirective } from '../core/can.directive';
+import { environment } from '../../environments/environment';
 
 interface Toast {
   id: number;
@@ -32,6 +33,14 @@ interface Toast {
             <a routerLink="/app/rules" routerLinkActive="active">Rules</a>
           </ng-container>
         </nav>
+        @if (demo) {
+          <div class="demo-side">
+            <b>Live demo</b>
+            <span>Open another tab and sign in as a different user to watch updates flow between them.</span>
+            <a href="/login" target="_blank" rel="noopener">Open a new tab →</a>
+            <button class="link" (click)="resetDemo()">Reset demo data</button>
+          </div>
+        }
         <div class="sidebar-foot">
           <span class="dot" [class.on]="hub.connected()"></span> {{ hub.connected() ? 'Live' : 'Offline' }}
         </div>
@@ -81,6 +90,13 @@ export class ShellPage implements OnInit {
   inboxCount = signal(0);
   showNotifications = signal(false);
   toasts = signal<Toast[]>([]);
+  demo = environment.demo;
+
+  async resetDemo() {
+    if (!confirm('Reset all demo data in this browser?')) return;
+    (await import('../demo/nexus-demo-backend')).resetDemo();
+    location.href = '/app';
+  }
 
   async ngOnInit() {
     this.hub.connect();

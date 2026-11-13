@@ -25,7 +25,7 @@ import { EventHub } from '../core/event-hub.service';
         <form class="card form" (ngSubmit)="save()">
           @for (f of d.fields; track f.name) {
             <label [class.wide]="f.type === 'textarea'">
-              {{ f.label }} @if (f.required) {<span class="req">*</span>}
+              <span>{{ f.label }} @if (f.required) {<span class="req">*</span>}</span>
               @switch (f.type) {
                 @case ('textarea') { <textarea [name]="f.name" [(ngModel)]="model[f.name]" [disabled]="readOnly(f)" rows="3"></textarea> }
                 @case ('select') {
@@ -71,7 +71,7 @@ import { EventHub } from '../core/event-hub.service';
               <h3>History</h3>
               @for (h of history(); track $index) {
                 <details><summary>{{ h.action }} · {{ h.actorType }} · {{ h.createdAt | date: 'short' }}</summary><pre>{{ h.after | json }}</pre></details>
-              }
+              } @empty { <p class="muted">No changes recorded yet.</p> }
             </div>
           </aside>
         }
@@ -108,7 +108,17 @@ export class EntityFormPage {
   }
 
   isNew = () => this.id() === 'new';
-  editable = () => this.isNew() || (this.auth.can(this.entity(), 'update') && !this.workflow()?.final);
+  /** Mirrors the API's record scope: own-scope users can only edit their own records. */
+  editable = () => {
+    if (this.isNew()) return true;
+    if (this.workflow()?.final) return false;
+    const me = this.auth.me();
+    const grants = (me?.permissions ?? []).filter((p) => {
+      const [r, a] = p.key.split(':');
+      return (r === '*' || r === this.entity()) && (a === '*' || a === 'update');
+    });
+    return grants.some((g) => g.scope !== 'own' || this.record()?.ownerId === me?.userId);
+  };
   readOnly = (f: FieldDefinition) => !this.editable() || (f as FieldDefinition & { readOnly?: boolean }).readOnly === true;
   inputType = (f: FieldDefinition) =>
     ({ number: 'number', money: 'number', date: 'date', datetime: 'datetime-local', email: 'email', phone: 'tel' } as Record<string, string>)[f.type] ?? 'text';

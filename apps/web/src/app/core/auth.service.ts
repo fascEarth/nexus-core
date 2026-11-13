@@ -4,6 +4,10 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CompiledPermission, FieldMask } from '@nexus/shared-types';
 import { config } from './config';
+import { environment } from '../../environments/environment';
+
+/** Demo: per-tab sessions, so two tabs can be two different users. */
+const store = (): Storage => (environment.demo ? sessionStorage : localStorage);
 
 interface Tokens {
   accessToken: string;
@@ -25,7 +29,7 @@ const KEY = 'nexus.session';
 
 function load(): Tokens | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = store().getItem(KEY);
     return raw ? (JSON.parse(raw) as Tokens) : null;
   } catch {
     return null;
@@ -34,8 +38,8 @@ function load(): Tokens | null {
 
 function save(tokens: Tokens | null) {
   try {
-    if (tokens) localStorage.setItem(KEY, JSON.stringify(tokens));
-    else localStorage.removeItem(KEY);
+    if (tokens) store().setItem(KEY, JSON.stringify(tokens));
+    else store().removeItem(KEY);
   } catch {
     /* storage unavailable: session lives in memory only */
   }

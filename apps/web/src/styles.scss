@@ -101,3 +101,13 @@ details { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line);
   .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
   .two-col, .form { grid-template-columns: 1fr; }
 }
+
+/* demo mode */
+.demo-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--brand) 8%, transparent); }
+.demo-users { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.demo-users .btn { flex-direction: column; gap: 2px; padding: 8px 4px; font-size: 13px; }
+.demo-users small { color: var(--muted); font-weight: 400; font-size: 11px; }
+.demo-side { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; padding: 10px; border-radius: 10px; background: color-mix(in srgb, var(--brand) 8%, transparent); color: var(--muted); }
+.demo-side b { color: var(--brand); }
+.demo-side a { color: var(--brand); }
+.link { background: none; border: 0; padding: 0; color: var(--brand); cursor: pointer; font: inherit; text-align: left; }
