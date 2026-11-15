@@ -7,6 +7,7 @@ import { Api } from '../core/api.service';
 import { EventHub } from '../core/event-hub.service';
 import { CanDirective } from '../core/can.directive';
 import { environment } from '../../environments/environment';
+import { CommandPalette } from '../shared/command-palette';
 
 interface Toast {
   id: number;
@@ -16,7 +17,7 @@ interface Toast {
 
 @Component({
   selector: 'nx-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, DatePipe, CanDirective],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, DatePipe, CanDirective, CommandPalette],
   template: `
     <div class="shell">
       <aside class="sidebar">
@@ -32,6 +33,12 @@ interface Toast {
             <div class="nav-label">Automation</div>
             <a routerLink="/app/rules" routerLinkActive="active">Rules</a>
           </ng-container>
+          @if (auth.can('users', 'read') || auth.can('audit', 'read') || auth.can('events', 'admin')) {
+            <div class="nav-label">Administration</div>
+            <a *nxCan="'users:read'" routerLink="/app/people" routerLinkActive="active">People &amp; access</a>
+            <a *nxCan="'audit:read'" routerLink="/app/activity" routerLinkActive="active">Activity log</a>
+            <a *nxCan="'events:admin'" routerLink="/app/events" routerLinkActive="active">Event monitor</a>
+          }
         </nav>
         @if (demo) {
           <div class="demo-side">
@@ -48,7 +55,7 @@ interface Toast {
 
       <div class="main">
         <header class="topbar">
-          <div></div>
+          <button class="search-trigger" (click)="openPalette()"><span>Search or jump to…</span><kbd>Ctrl K</kbd></button>
           <div class="top-actions">
             <button class="btn ghost" (click)="toggleNotifications()" aria-label="Notifications">
               🔔 @if (unread()) {<span class="badge">{{ unread() }}</span>}
@@ -71,6 +78,7 @@ interface Toast {
         <section class="content"><router-outlet /></section>
       </div>
 
+      <nx-command-palette />
       <div class="toasts" aria-live="polite">
         @for (t of toasts(); track t.id) {
           <div class="toast"><b>{{ t.title }}</b>@if (t.body) {<span>{{ t.body }}</span>}</div>
@@ -112,6 +120,10 @@ export class ShellPage implements OnInit {
     this.hub.events$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
       if (e.type.startsWith('workflow.')) void this.refreshInbox();
     });
+  }
+
+  openPalette() {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
   }
 
   toggleNotifications() {

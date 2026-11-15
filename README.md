@@ -10,7 +10,9 @@ Build HRMS, WMS, CRM or clinic apps by *configuring* them on Nexus Core instead 
 - **Real-time sync**: every committed change is pushed to open screens, filtered by permission.
 - **Workflow and approvals**: multi-level, conditional routing, SLAs, send-back, delegation, and one inbox across modules.
 - **No-code rules**: "When event → If condition → Then actions" (notify, update or create records, emit, webhook), with dry-run.
-- **Audit trail**: before/after for every change, by user, rule, workflow or AI.
+- **Audit trail**: before/after for every change, by user, rule, workflow or AI, with an activity log viewer and field-level diffs.
+- **Live dashboard**: per-module KPIs and 14-day trends, approvals pipeline, event throughput, automation stats and an activity feed, all scoped to what each user may see.
+- **Admin consoles**: people & access (assign roles, suspend members, permission matrix with scopes), event monitor (delivery, correlation chains, dead-letter replay) and a Ctrl/⌘+K command palette across pages and records.
 - **Claude Code kit** included: `CLAUDE.md`, 7 agents, 5 skills, hooks, MCP config.
 
 ```
@@ -77,7 +79,9 @@ docs/BLUEPRINT.md   architecture and roadmap
 | Data | `GET/POST /data/:entity`, `GET/PATCH/DELETE /data/:entity/:id`, `GET /data/:entity/:id/history` |
 | Workflow | `GET /workflow/inbox`, `GET /workflow/:entity/:id`, `POST /workflow/:entity/:id/transition`, `PUT /workflow/definitions/:key` |
 | Rules | `GET/POST /rules`, `PUT/DELETE /rules/:id`, `GET /rules/:id/runs`, `POST /rules/test` |
-| Events | `GET /events/catalog`, `GET /events/dead-letters`, `POST /events/dead-letters/:id/replay` |
+| Events | `GET /events/catalog`, `GET /events/recent`, `GET /events/stats`, `GET /events/dead-letters`, `POST /events/dead-letters/:id/replay` |
+| Insights | `GET /insights/overview` (dashboard, permission-scoped), `GET /audit?entity&entityId&action&page` |
+| Admin | `GET /admin/users`, `GET /admin/roles`, `PUT /admin/users/:id/roles`, `PUT /admin/users/:id/status` |
 | Notifications | `GET /notifications`, `POST /notifications/:id/read` |
 | Health | `GET /health` |
 
@@ -100,7 +104,7 @@ See `CLAUDE.md` for the rules every change must follow.
 | 2 Engine | Outbox + event bus, metadata, dynamic UI, realtime | ✅ core in this repo |
 | 3 Automation | Workflow, approval inbox, rules, notifications | ✅ core · scheduler/SLA escalation jobs next |
 | 4 Intelligence | AI tool registry from metadata, command bar, copilot | ⏳ next |
-| 5 Pilot | HRMS on Nexus Core, admin consoles, security testing | ⏳ |
+| 5 Pilot | HRMS + expense modules, admin consoles, dashboard, event monitor | ✅ demo · security testing next |
 
 Next up: SLA escalation scheduler (BullMQ), email/WhatsApp channels, file storage, OpenTelemetry, a visual workflow designer, and AI agent tools generated from metadata.
 

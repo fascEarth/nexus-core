@@ -93,10 +93,10 @@ export class InsightsService {
       // Activity: everyone's for auditors, otherwise only the user's own actions.
       const activityRows = await tx.auditLog.findMany({
         where: canAudit ? {} : { actorId: { startsWith: user.userId } },
-        orderBy: { createdAt: 'desc' }, take: 12,
+        orderBy: { createdAt: 'desc' }, take: 8,
         select: { id: true, actorId: true, actorType: true, action: true, entity: true, entityId: true, createdAt: true },
       });
-      const names = await this.names(tx, activityRows.map((a) => a.actorId));
+      const names = await this.names(tx, [...activityRows.map((a) => a.actorId), ...activityRows.filter((a) => a.entity === 'user').map((a) => a.entityId)]);
       const numbers = new Map((await tx.record.findMany({ where: { id: { in: activityRows.map((a) => a.entityId) } }, select: { id: true, number: true } })).map((r) => [r.id, r.number]));
 
       return {
@@ -105,7 +105,8 @@ export class InsightsService {
         tasks: { open: myTasks, overdue },
         events, workflow, rules, users,
         activity: activityRows.map((a) => ({
-          id: a.id.toString(), action: a.action, entity: a.entity, entityId: a.entityId, number: numbers.get(a.entityId) ?? null,
+          id: a.id.toString(), action: a.action, entity: a.entity, entityId: a.entityId,
+          number: a.entity === 'user' ? names.get(a.entityId) ?? null : numbers.get(a.entityId) ?? null,
           actor: actorLabel(a.actorId, names), actorType: a.actorType, createdAt: a.createdAt,
         })),
       };
@@ -140,11 +141,11 @@ export class AuditQueryService {
         tx.auditLog.count({ where }),
         tx.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
       ]);
-      const names = await this.insights.names(tx, rows.map((r) => r.actorId));
+      const names = await this.insights.names(tx, [...rows.map((r) => r.actorId), ...rows.filter((r) => r.entity === 'user').map((r) => r.entityId)]);
       const entities = (await tx.auditLog.groupBy({ by: ['entity'], _count: true })).map((g) => g.entity).sort();
       return {
         total, page, pageSize, entities,
-        items: rows.map((r) => ({ ...r, id: r.id.toString(), actor: actorLabel(r.actorId, names), changes: diff(r.before, r.after) })),
+        items: rows.map((r) => ({ ...r, id: r.id.toString(), actor: actorLabel(r.actorId, names), subject: r.entity === 'user' ? names.get(r.entityId) ?? null : null, changes: diff(r.before, r.after) })),
       };
     });
   }
