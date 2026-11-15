@@ -70,7 +70,7 @@ JSON
     --shape "$SHAPE" --sort-by TIMECREATED --sort-order DESC | jq -r '[.data[] | select(."display-name" | test("Minimal") | not)][0].id')
   log "Image: $IMG"
 
-  [ -f "$HOME/.ssh/fascinora" ] || ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/fascinora" -q
+  [ -f "$HOME/.ssh/fascinora" ] || ssh-keygen -t rsa -b 4096 -N "" -f "$HOME/.ssh/fascinora" -q
   cat > cloud-init.sh <<'EOF'
 #!/bin/bash
 export HOME=/root USER=root
