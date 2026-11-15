@@ -19,6 +19,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - nexus_site:/srv/nexus:ro
       - medi_site:/srv/medi:ro
+      - /var/lib/fascinora/public:/srv/status:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on: [nexus-api, medi-api]

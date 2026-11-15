@@ -25,6 +25,12 @@
 	handle @backend {
 		reverse_proxy nexus-api:3000
 	}
+	# Last auto-deploy result (written by auto-update.sh); no secrets inside.
+	handle /deploy-status.json {
+		root * /srv/status
+		header Cache-Control "no-store"
+		file_server
+	}
 	handle {
 		root * /srv/nexus
 		try_files {path} /index.html
