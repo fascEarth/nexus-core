@@ -5,16 +5,16 @@ import { Api, errorMessage } from '../core/api.service';
 import { CanDirective } from '../core/can.directive';
 
 const TEMPLATE = {
-  name: 'Notify admins on big leave',
-  eventType: 'record.leave.created',
-  condition: { all: [{ fact: 'after.days', operator: 'greaterThan', value: 5 }] },
-  actions: [{ action: 'notify', to: ['role:admin'], title: 'Long leave {{after.number}}', body: '{{after.days}} days' }],
+  name: 'Cash order above ₹800',
+  eventType: 'record.order.created',
+  condition: { all: [{ fact: 'after.paymentMethod', operator: 'equal', value: 'cod' }, { fact: 'after.total', operator: 'greaterThan', value: 800 }] },
+  actions: [{ action: 'notify', to: ['role:ops'], title: 'Large COD order {{after.number}}', body: '₹{{after.total}} from {{after.restaurantName}}' }],
 };
 
 const SAMPLE_EVENT = {
-  id: 'evt_test', type: 'record.leave.created', tenantId: 't', version: 1, depth: 0, correlationId: 'c',
+  id: 'evt_test', type: 'record.order.created', tenantId: 't', version: 1, depth: 0, correlationId: 'c',
   actor: { type: 'user', id: 'u1' }, occurredAt: new Date().toISOString(),
-  data: { before: null, after: { id: 'r1', number: 'LV-2026-0001', days: 7, leaveType: 'Earned' } },
+  data: { before: null, after: { id: 'r1', number: 'NE-00042', total: 960, paymentMethod: 'cod', restaurantName: 'Kovai Biryani House' } },
 };
 
 /** No-code automation: When (event) → If (condition) → Then (actions). JSON editor + dry-run. */

@@ -9,7 +9,7 @@ import { environment } from '../../environments/environment';
 /** Demo: per-tab sessions, so two tabs can be two different users. */
 const store = (): Storage => (environment.demo ? sessionStorage : localStorage);
 
-interface Tokens {
+export interface Tokens {
   accessToken: string;
   refreshToken: string;
   tenant: { id: string; slug: string; name: string };
@@ -61,6 +61,25 @@ export class AuthService {
     await this.loadMe();
   }
 
+  /** Tokens obtained elsewhere (e.g. customer sign-up). */
+  async useTokens(tokens: Tokens) {
+    this.set(tokens);
+    await this.loadMe();
+  }
+
+  /** Where each kind of user lands after signing in. */
+  home(): string {
+    const roles = this.me()?.roles ?? [];
+    if (roles.includes('admin') || roles.includes('ops')) return '/app/ops';
+    if (roles.includes('restaurant')) return '/partner';
+    if (roles.includes('rider')) return '/rider';
+    return '/';
+  }
+
+  hasRole(...roles: string[]) {
+    return (this.me()?.roles ?? []).some((r) => roles.includes(r));
+  }
+
   async loadMe() {
     this.me.set(await firstValueFrom(this.http.get<Me>(`${config.apiUrl}/auth/me`)));
     return this.me();
@@ -82,7 +101,7 @@ export class AuthService {
     const current = this.tokens();
     if (current) await firstValueFrom(this.http.post(`${config.apiUrl}/auth/logout`, { refreshToken: current.refreshToken })).catch(() => undefined);
     this.clear();
-    await this.router.navigateByUrl('/login');
+    await this.router.navigateByUrl('/');
   }
 
   /** Mirrors the server's permission check so the UI can hide what the API would refuse. */

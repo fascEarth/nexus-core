@@ -24,8 +24,12 @@ interface Toast {
         <div class="brand"><span class="logo">N</span> {{ auth.tokens()?.tenant?.name }}</div>
         <nav>
           <a routerLink="/app" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active">Home</a>
-          <a routerLink="/app/inbox" routerLinkActive="active">Approvals @if (inboxCount()) {<span class="badge">{{ inboxCount() }}</span>}</a>
-          <div class="nav-label">Modules</div>
+          <div class="nav-label">Food delivery</div>
+          <a routerLink="/app/ops" routerLinkActive="active">Live operations</a>
+          <a routerLink="/app/insights" routerLinkActive="active">Business insights</a>
+          <a href="/" target="_blank" rel="noopener">Customer app ↗</a>
+          <a href="/partner" target="_blank" rel="noopener">Restaurant app ↗</a>
+          <div class="nav-label">Data (metadata entities)</div>
           @for (e of api.entities(); track e.name) {
             <a [routerLink]="['/app', e.name]" routerLinkActive="active">{{ e.pluralLabel }}</a>
           }
@@ -95,7 +99,6 @@ export class ShellPage implements OnInit {
 
   notifications = signal<Awaited<ReturnType<Api['notifications']>>>([]);
   unread = signal(0);
-  inboxCount = signal(0);
   showNotifications = signal(false);
   toasts = signal<Toast[]>([]);
   demo = environment.demo;
@@ -109,17 +112,13 @@ export class ShellPage implements OnInit {
   async ngOnInit() {
     this.hub.connect();
     await this.api.loadEntities();
-    await Promise.all([this.refreshNotifications(), this.refreshInbox()]);
+    await this.refreshNotifications();
 
     this.hub.notifications$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((n) => {
       this.toast(n.title, n.body);
       void this.refreshNotifications();
-      void this.refreshInbox();
     });
     this.hub.metadata$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.api.loadEntities());
-    this.hub.events$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
-      if (e.type.startsWith('workflow.')) void this.refreshInbox();
-    });
   }
 
   openPalette() {
@@ -140,10 +139,6 @@ export class ShellPage implements OnInit {
     const list = await this.api.notifications();
     this.notifications.set(list);
     this.unread.set(list.filter((n) => !n.readAt).length);
-  }
-
-  private async refreshInbox() {
-    this.inboxCount.set((await this.api.inbox()).length);
   }
 
   private toast(title: string, body?: string) {

@@ -45,7 +45,8 @@ export class CommandPalette {
   private pages = computed<Item[]>(() => {
     const p: Item[] = [
       { label: 'Home', hint: 'Dashboard', group: 'Pages', url: '/app' },
-      { label: 'Approvals', hint: 'Your inbox', group: 'Pages', url: '/app/inbox' },
+      { label: 'Live operations', hint: 'Food delivery', group: 'Pages', url: '/app/ops' },
+      { label: 'Business insights', hint: 'Food delivery', group: 'Pages', url: '/app/insights' },
     ];
     for (const e of this.api.entities()) {
       p.push({ label: e.pluralLabel, hint: 'Module', group: 'Pages', url: `/app/${e.name}` });
@@ -106,7 +107,7 @@ export class CommandPalette {
       if (!r) continue;
       for (const row of r.p.items) {
         const d = row.data;
-        const title = [row.number, d['leaveType'] ?? d['category'] ?? d['name'] ?? d['title'], d['merchant'] ?? d['reason']].filter(Boolean).join(' · ');
+        const title = [row.number, d['name'] ?? d['restaurantName'] ?? d['code'] ?? d['title'], d['customerName'] ?? d['riderName'] ?? d['area']].filter(Boolean).join(' · ');
         out.push({ label: title || row.id, hint: `${r.e.label}${row.status ? ' · ' + row.status : ''}`, group: 'Records', url: `/app/${r.e.name}/${row.id}` });
       }
     }

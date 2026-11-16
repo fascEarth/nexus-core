@@ -13,6 +13,7 @@ Build HRMS, WMS, CRM or clinic apps by *configuring* them on Nexus Core instead 
 - **Audit trail**: before/after for every change, by user, rule, workflow or AI, with an activity log viewer and field-level diffs.
 - **Live dashboard**: per-module KPIs and 14-day trends, approvals pipeline, event throughput, automation stats and an activity feed, all scoped to what each user may see.
 - **Admin consoles**: people & access (assign roles, suspend members, permission matrix with scopes), event monitor (delivery, correlation chains, dead-letter replay) and a Ctrl/⌘+K command palette across pages and records.
+- **Reference app: NexEats**, a full food-delivery business (customer, restaurant-partner, rider and admin apps) built entirely on the platform. See below.
 - **Claude Code kit** included: `CLAUDE.md`, 7 agents, 5 skills, hooks, MCP config.
 
 ```
@@ -31,25 +32,43 @@ npm run infra:up                       # Postgres (pgvector), Redis, MinIO, Mail
 cp .env.example apps/api/.env
 npm run db:migrate                     # creates tables (name the first migration "init")
 npm run db:rls -w apps/api             # app role + RLS policies
-npm run db:seed                        # demo tenant "acme"
+npm run db:seed                        # demo tenant "nexeats" (food delivery)
 npm run dev:api                        # http://localhost:3000/api/v1
 npm run dev:web                        # http://localhost:4200
 ```
 
-Log in with workspace **acme** using any of these:
+Open http://localhost:4200 and pick a role on the sign-in screen. Every demo account uses the password **Demo@12345** (workspace `nexeats`):
 
-| User | Password | Role |
+| User | App | What you can do |
 |---|---|---|
-| admin@acme.test | Admin@12345 | Administrator |
-| manager@acme.test | Manager@12345 | Manager |
-| employee@acme.test | Employee@12345 | Employee (reports to manager) |
+| customer@nexeats.test | Customer app (`/`) | Browse 10 restaurants, filter and search dishes, cart, coupons, simulated UPI/card/COD payment, live tracking on a map, cancel, rate |
+| partner@nexeats.test | Restaurant app (`/partner`) | Live order board (accept, decline with reason, mark ready), menu and stock, open/closed, sales and review insights |
+| rider@nexeats.test | Delivery app (`/rider`) | Go online, get trips, pickup → drop on a map, earnings |
+| admin@nexeats.test | Admin console (`/app`) | Live operations map, business insights, and every platform screen: entities, rules, people, audit, events |
 
-**Try the "pages talk to each other" demo:**
+Customers can also sign up themselves.
 
-1. Open two browsers: employee in one, manager in the other.
-2. The employee creates a 7-day leave request and clicks **Submit**.
-3. The manager's inbox badge and toast update live, the admin gets a "Long leave" notification from a rule, and the home dashboard counters move.
-4. The manager clicks **Approve → HR** (because it's more than 5 days). The admin sees it in their inbox.
+## NexEats: a food-delivery business on Nexus Core
+
+Nothing in NexEats bypasses the platform. It is a reference for building any business app on Nexus:
+
+| Food-delivery concept | Nexus building block |
+|---|---|
+| Restaurants, menu items, orders, deliveries, riders, coupons | Metadata **entities** (generic data API, forms and grids in the admin console) |
+| Order lifecycle: placed → preparing → ready → out for delivery → delivered / cancelled / declined | **Workflow** `order-lifecycle` (who may fire each step is data) |
+| Rider trip: assigned → picked up → delivered | **Workflow** `delivery-lifecycle` |
+| Each restaurant sees only its own orders and menu | **Org units** + `org_unit` permission scope, enforced with RLS per tenant |
+| Customers see only their orders, riders only their trips | `own` scope |
+| Rider dispatch, order sync, refunds on cancel, cash collection | **Event consumers** (`food-dispatch`) reacting to workflow events |
+| "Big order", "low rating", "restaurant declined" alerts | No-code **rules**, editable in the admin console |
+| Live order board, tracking, ops map | **Realtime** events over Socket.IO |
+| Every accept, pickup, price change | **Audit log** with before/after |
+
+`apps/api/src/modules/food` holds the module: pricing (server-side, the client never sends prices), role views (`/food/...`) and the event-driven automation. A demo **autopilot** keeps the marketplace alive when nobody is clicking: simulated customers order, kitchens accept and cook, riders ride. Real users always get a head start (about 25 s for restaurants, 2 min for the human rider) before it steps in. Disable it with `FOOD_AUTOPILOT=false`.
+
+Free and simulated by design: maps are OpenStreetMap tiles via Leaflet, routes come from the public OSRM demo server (with an offline fallback), payments are a mock gateway, and the demo clock runs about 10× faster than real life.
+
+**Try it with three tabs:** customer, restaurant partner and rider side by side. Place an order, accept it in the partner board, mark it ready, pick it up as the rider and watch the customer's map and status update live.
 
 ## Project layout
 
@@ -63,8 +82,10 @@ apps/api            NestJS API + event workers
   src/core/workflow   state machines, approval tasks, inbox
   src/core/rules      no-code automation engine
   src/core/realtime   Socket.IO gateway, permission-filtered live patches
-  prisma/             schema, rls.sql, seed
-apps/web            Angular 20 shell: dynamic list/form, inbox, rules, live notifications
+  src/modules/food    NexEats module: pricing, role views, dispatch + autopilot consumers
+  prisma/             schema, rls.sql, seed (food-data.ts: demo catalogue)
+apps/web            Angular 20: platform admin shell (dynamic list/form, rules, live notifications)
+  src/app/food        NexEats customer, partner, rider and ops apps (Leaflet maps)
 libs/shared-types   event, permission and metadata contracts shared FE/BE
 .claude/            Claude Code agents, skills, hooks, commands
 docs/BLUEPRINT.md   architecture and roadmap
@@ -83,6 +104,7 @@ docs/BLUEPRINT.md   architecture and roadmap
 | Insights | `GET /insights/overview` (dashboard, permission-scoped), `GET /audit?entity&entityId&action&page` |
 | Admin | `GET /admin/users`, `GET /admin/roles`, `PUT /admin/users/:id/roles`, `PUT /admin/users/:id/status` |
 | Notifications | `GET /notifications`, `POST /notifications/:id/read` |
+| Food (NexEats) | Public: `GET /food/restaurants`, `/food/restaurants/:id`, `/food/search`, `/food/offers`, `POST /food/quote`, `/food/signup`. Customer: `POST /food/orders`, `GET /food/orders/mine`, `/food/orders/:id/track`, `POST /food/orders/:id/cancel`, `/rate`. Partner: `GET /food/partner/board`, `/menu`, `/insights`, `POST /food/partner/orders/:id/:action`, `PUT /food/partner/menu/:id`, `/restaurant/:id`. Rider: `GET /food/rider/home`, `PUT /food/rider/online`, `POST /food/rider/deliveries/:id/:action`. Ops: `GET /food/admin/live`, `/food/admin/insights` |
 | Health | `GET /health` |
 
 The tenant is sent as the `X-Tenant: <slug>` header or as a subdomain of `ROOT_DOMAIN`. It must match the JWT.
@@ -104,7 +126,7 @@ See `CLAUDE.md` for the rules every change must follow.
 | 2 Engine | Outbox + event bus, metadata, dynamic UI, realtime | ✅ core in this repo |
 | 3 Automation | Workflow, approval inbox, rules, notifications | ✅ core · scheduler/SLA escalation jobs next |
 | 4 Intelligence | AI tool registry from metadata, command bar, copilot | ⏳ next |
-| 5 Pilot | HRMS + expense modules, admin consoles, dashboard, event monitor | ✅ demo · security testing next |
+| 5 Pilot | NexEats food delivery (4 apps), admin consoles, dashboard, event monitor | ✅ live demo · security testing next |
 
 Next up: SLA escalation scheduler (BullMQ), email/WhatsApp channels, file storage, OpenTelemetry, a visual workflow designer, and AI agent tools generated from metadata.
 

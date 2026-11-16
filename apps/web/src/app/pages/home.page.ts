@@ -21,7 +21,7 @@ const STATE_LABEL: Record<string, string> = { draft: 'Draft', submitted: 'Manage
     @if (error()) {<p class="error">{{ error() }}</p>}
     @if (o(); as o) {
       <div class="kpis">
-        <a class="kpi-link" routerLink="/app/inbox"><nx-kpi label="Waiting for you" [value]="o.tasks.open" [hint]="o.tasks.overdue ? o.tasks.overdue + ' overdue' : 'Nothing overdue'" /></a>
+        <a class="kpi-link" routerLink="/app/ops"><nx-kpi label="Live operations" value="Open" hint="Orders, riders and kitchens on a map" /></a>
         @for (e of o.entities; track e.name) {
           <a class="kpi-link" [routerLink]="['/app', e.name]">
             <div class="kpi card"><span class="muted small">{{ e.label }}</span><b class="kpi-value">{{ e.total }}</b><nx-sparkline [values]="e.daily" /><span class="muted small">{{ sum(e.daily) }} in the last 14 days</span></div>
