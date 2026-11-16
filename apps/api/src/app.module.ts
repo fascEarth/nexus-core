@@ -14,6 +14,7 @@ import { RulesModule } from './core/rules/rules.controller';
 import { RealtimeModule } from './core/realtime/realtime.gateway';
 import { HealthModule } from './core/health/health.controller';
 import { InsightsModule } from './core/insights/insights.module';
+import { FoodModule } from './modules/food/food.module';
 import { TenantMiddleware } from './core/tenancy/tenant.middleware';
 
 @Module({
@@ -32,7 +33,8 @@ import { TenantMiddleware } from './core/tenancy/tenant.middleware';
     RealtimeModule,
     HealthModule,
     InsightsModule,
-    // Business modules (HRMS, WMS, …) plug in here: they only emit and consume events.
+    // Business modules plug in here: they only emit and consume events.
+    FoodModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

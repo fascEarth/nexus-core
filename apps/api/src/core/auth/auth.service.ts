@@ -93,7 +93,7 @@ export class AuthService {
     if (sid) await this.prisma.system.session.updateMany({ where: { id: sid, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
-  private async issue(userId: string, tenant: { id: string; slug: string; name: string }, meta: SessionMeta): Promise<TokenPair> {
+  async issue(userId: string, tenant: { id: string; slug: string; name: string }, meta: SessionMeta): Promise<TokenPair> {
     const secret = randomBytes(48).toString('hex');
     const days = Number(process.env.JWT_REFRESH_TTL_DAYS ?? 14);
     const session = await this.prisma.system.session.create({

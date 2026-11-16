@@ -69,7 +69,8 @@ export class DataService {
     return this.present(record);
   }
 
-  async create(entity: string, input: Record<string, unknown>) {
+  /** `placement` lets trusted server code (never the client) file a record under another owner / org unit. */
+  async create(entity: string, input: Record<string, unknown>, placement?: { ownerId?: string; orgUnitId?: string | null }) {
     const user = currentUser();
     this.access.assert(user, entity, 'create');
     this.access.assertWritable(user, entity, input);
@@ -82,7 +83,7 @@ export class DataService {
       let record = await tx.record.create({
         data: {
           tenantId: user.tenantId, entity, number, data: data as Prisma.InputJsonValue,
-          ownerId: user.userId, orgUnitId: user.orgUnitIds[0] ?? null,
+          ownerId: placement?.ownerId ?? user.userId, orgUnitId: placement?.orgUnitId !== undefined ? placement.orgUnitId : user.orgUnitIds[0] ?? null,
           createdBy: user.userId, updatedBy: user.userId,
         },
       });
